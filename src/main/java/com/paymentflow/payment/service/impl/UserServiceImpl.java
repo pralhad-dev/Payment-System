@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -84,5 +85,21 @@ public class UserServiceImpl implements UserService {
         return response;
 
     }
+
+    @Override
+    public GlobalApiResponse<List<UserResponse>> fetchAllUserList(){
+        GlobalApiResponse<List<UserResponse>> response = new GlobalApiResponse<>();
+        List<User> user = userRepository.findAll();
+
+        List<UserResponse> userResponseList = userMapper.mapEntityToUserResponse(user);
+
+        response.setStatus(ResponseStatus.SUCCESS);
+        response.setResponseData(userResponseList);
+        response.setResponseMsg(CustomStatus.RETRIEVE_SUCCESS_MSG);
+        response.setResponseCode(CustomStatus.SUCCESS_CODE);
+        return response;
+
+    }
+
 
 }
