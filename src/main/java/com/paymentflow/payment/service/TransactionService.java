@@ -1,4 +1,8 @@
 package com.paymentflow.payment.service;
 
-public class TransactionService {
+import com.paymentflow.payment.dto.GlobalApiResponse;
+import com.paymentflow.payment.dto.TransferRequest;
+
+public interface TransactionService {
+     GlobalApiResponse transferMoney(TransferRequest request);
 }
