@@ -31,4 +31,9 @@ public class User {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
+    @Column(name = "status")
+    private String status;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 }
