@@ -113,7 +113,7 @@ public class UserServiceImpl implements UserService {
 
         if (request.getPhone() != null && !request.getPhone().isEmpty()) {
             //check phone number already present or taken by another user
-            if (!request.getPhone().equals(user.getPhone()) && userRepository.existByPhone(request.getPhone())) {
+            if (!request.getPhone().equals(user.getPhone()) && userRepository.existsByPhone(request.getPhone())) {
                 throw new DataAlreadyExistException(CustomStatus.DATA_ALREADY_EXITS, CustomStatus.DATA_ALREADY_EXITS_CODE);
             }
             user.setPhone(user.getPhone());

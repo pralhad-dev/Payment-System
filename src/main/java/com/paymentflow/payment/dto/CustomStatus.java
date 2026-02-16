@@ -30,8 +30,6 @@ public class CustomStatus {
     public static final String DATA_DELETED_MSG = "Data Deleted Successfully";
     public static final String BALANCE_ADDED = "Balance added Successfully";
     public static final String BALANCE_WITHDRAW = "Balance withdraw Successfully";
-    public static final int MIN_YEAR = 2000;
-    public static final int MAX_YEAR = 2100;
-
+    public static final String TRANSFER_SUCCESS_MSG = "Amount Transfer Successfully";
 
 }
