@@ -4,6 +4,7 @@ import com.paymentflow.payment.Enum.ResponseStatus;
 import com.paymentflow.payment.Enum.TransactionStatus;
 import com.paymentflow.payment.dto.CustomStatus;
 import com.paymentflow.payment.dto.GlobalApiResponse;
+import com.paymentflow.payment.dto.TransactionResponse;
 import com.paymentflow.payment.dto.TransferRequest;
 import com.paymentflow.payment.entity.Transaction;
 import com.paymentflow.payment.entity.User;
@@ -14,10 +15,13 @@ import com.paymentflow.payment.repository.TransactionRepository;
 import com.paymentflow.payment.repository.UserRepository;
 import com.paymentflow.payment.service.TransactionService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cglib.core.internal.CustomizerRegistry;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.net.CookieStore;
+import java.util.List;
 
 
 @Service
@@ -44,10 +48,10 @@ public class TransactionalServiceImpl implements TransactionService {
         }
 
         User sender = userRepository.findById(request.getSenderId())
-                .orElseThrow(() -> new DataNotFoundException(CustomStatus.DATA_NOT_FOUND,CustomStatus.DATA_NOT_FOUND_CODE));
+                .orElseThrow(() -> new DataNotFoundException(CustomStatus.DATA_NOT_FOUND, CustomStatus.DATA_NOT_FOUND_CODE));
 
         User receiver = userRepository.findById(request.getReceiverId())
-                .orElseThrow(() -> new DataNotFoundException(CustomStatus.DATA_NOT_FOUND,CustomStatus.DATA_NOT_FOUND_CODE));
+                .orElseThrow(() -> new DataNotFoundException(CustomStatus.DATA_NOT_FOUND, CustomStatus.DATA_NOT_FOUND_CODE));
 
         BigDecimal transferAmount = request.getAmount();
 
@@ -75,4 +79,40 @@ public class TransactionalServiceImpl implements TransactionService {
 
         return response;
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GlobalApiResponse<TransactionResponse> fetchTransactionsById(Long id) throws DataNotFoundException {
+        GlobalApiResponse<TransactionResponse> response = new GlobalApiResponse<>();
+        Transaction transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new DataNotFoundException(
+                                CustomStatus.DATA_NOT_FOUND,
+                                CustomStatus.DATA_NOT_FOUND_CODE
+                        )
+                );
+
+        TransactionResponse data = transactionMapper.mapEntityToResponse(transaction);
+        response.setResponseData(data);
+        response.setStatus(ResponseStatus.SUCCESS);
+        response.setResponseCode(CustomStatus.SUCCESS_CODE);
+        response.setResponseMsg(CustomStatus.RETRIEVE_SUCCESS_MSG);
+
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GlobalApiResponse<List<TransactionResponse>> getAllTxn(){
+        GlobalApiResponse<List<TransactionResponse>> response  = new GlobalApiResponse<>();
+
+        List<Transaction> transaction = transactionRepository.findAll();
+        List<TransactionResponse> txnResponse =transactionMapper.mapAllTxnListToResponse(transaction);
+        response.setResponseData(txnResponse);
+        response.setStatus(ResponseStatus.SUCCESS);
+        response.setResponseCode(CustomStatus.SUCCESS_CODE);
+        response.setResponseMsg(CustomStatus.RETRIEVE_SUCCESS_MSG);
+        response.setTotalRecords(txnResponse.size());
+        return response;
+    }
+
 }
