@@ -31,5 +31,10 @@ public class CustomStatus {
     public static final String BALANCE_ADDED = "Balance added Successfully";
     public static final String BALANCE_WITHDRAW = "Balance withdraw Successfully";
     public static final String TRANSFER_SUCCESS_MSG = "Amount Transfer Successfully";
+    public static final String REVERSE_TXN= "Only SUCCESS transactions can be reversed";
+    public static final String INSUFFICIENT_FUNDS = "Insufficient Funds";
+    public static final String FAILED_TXN = "Only FAILED transactions can be retried";
+    public static final String MAX_RETRY = "Maximum retry attempts reached";
+
 
 }

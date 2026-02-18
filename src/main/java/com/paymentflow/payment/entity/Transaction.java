@@ -4,8 +4,10 @@ package com.paymentflow.payment.entity;
 import com.paymentflow.payment.Enum.TransactionStatus;
 import jakarta.persistence.*;
 import lombok.Data;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "transactions")
 @Data
@@ -33,4 +35,7 @@ public class Transaction {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+    private Integer retryCount = 0;
+
+
 }
