@@ -10,17 +10,16 @@ import com.paymentflow.payment.entity.Transaction;
 import com.paymentflow.payment.entity.User;
 import com.paymentflow.payment.exception.DataNotFoundException;
 import com.paymentflow.payment.exception.InsufficientBalanceException;
+import com.paymentflow.payment.exception.InvalidRequestException;
 import com.paymentflow.payment.mapper.TransactionMapper;
 import com.paymentflow.payment.repository.TransactionRepository;
 import com.paymentflow.payment.repository.UserRepository;
 import com.paymentflow.payment.service.TransactionService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cglib.core.internal.CustomizerRegistry;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.net.CookieStore;
 import java.util.List;
 
 
@@ -102,11 +101,11 @@ public class TransactionalServiceImpl implements TransactionService {
 
     @Override
     @Transactional(readOnly = true)
-    public GlobalApiResponse<List<TransactionResponse>> getAllTxn(){
-        GlobalApiResponse<List<TransactionResponse>> response  = new GlobalApiResponse<>();
+    public GlobalApiResponse<List<TransactionResponse>> getAllTxn() {
+        GlobalApiResponse<List<TransactionResponse>> response = new GlobalApiResponse<>();
 
         List<Transaction> transaction = transactionRepository.findAll();
-        List<TransactionResponse> txnResponse =transactionMapper.mapAllTxnListToResponse(transaction);
+        List<TransactionResponse> txnResponse = transactionMapper.mapAllTxnListToResponse(transaction);
         response.setResponseData(txnResponse);
         response.setStatus(ResponseStatus.SUCCESS);
         response.setResponseCode(CustomStatus.SUCCESS_CODE);
@@ -114,5 +113,141 @@ public class TransactionalServiceImpl implements TransactionService {
         response.setTotalRecords(txnResponse.size());
         return response;
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GlobalApiResponse<List<TransactionResponse>> getAllTxnByUserId(Long id) throws DataNotFoundException {
+        GlobalApiResponse<List<TransactionResponse>> response = new GlobalApiResponse<>();
+        if (id == null || id <= 0) {
+            throw new InvalidRequestException(CustomStatus.INVALID_REQUEST_DATA, CustomStatus.BAD_REQUEST_CODE);
+        }
+        User user = userRepository.findById(id).orElseThrow(() -> new DataNotFoundException(
+                CustomStatus.DATA_NOT_FOUND,
+                CustomStatus.DATA_NOT_FOUND_CODE
+        ));
+
+        List<Transaction> transactionList = transactionRepository.findTransactionsByUserId(user.getId());
+        if (transactionList == null || transactionList.isEmpty()) {
+            throw new DataNotFoundException(CustomStatus.DATA_NOT_FOUND, CustomStatus.DATA_NOT_FOUND_CODE);
+        }
+        List<TransactionResponse> txnResponse = transactionMapper.mapAllTxnListToResponse(transactionList);
+        response.setResponseData(txnResponse);
+        response.setStatus(ResponseStatus.SUCCESS);
+        response.setResponseCode(CustomStatus.SUCCESS_CODE);
+        response.setResponseMsg(CustomStatus.RETRIEVE_SUCCESS_MSG);
+        response.setTotalRecords(txnResponse.size());
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public GlobalApiResponse<TransactionResponse> reverseTxn(Long txnId) throws DataNotFoundException {
+        GlobalApiResponse<TransactionResponse> response = new GlobalApiResponse<>();
+
+        Transaction originalTxn = transactionRepository.findById(txnId).orElseThrow(() -> new DataNotFoundException(
+                CustomStatus.DATA_NOT_FOUND,
+                CustomStatus.DATA_NOT_FOUND_CODE
+        ));
+
+        if (originalTxn.getStatus() != TransactionStatus.SUCCESS) {
+            throw new InvalidRequestException(
+                    CustomStatus.REVERSE_TXN,
+                    CustomStatus.BAD_REQUEST_CODE
+            );
+        }
+
+        User sender = originalTxn.getSender();
+        User receiver = originalTxn.getReceiver();
+        BigDecimal amount = originalTxn.getAmount();
+
+        if (receiver.getBalance().compareTo(amount) < 0) {
+            throw new InvalidRequestException(
+                    CustomStatus.INSUFFICIENT_FUNDS,
+                    CustomStatus.BAD_REQUEST_CODE
+            );
+        }
+
+        receiver.setBalance(receiver.getBalance().subtract(amount));
+        sender.setBalance(sender.getBalance().add(amount));
+        userRepository.save(sender);
+        userRepository.save(receiver);
+        originalTxn.setStatus(TransactionStatus.SUCCESS);
+        transactionRepository.save(originalTxn);
+
+        Transaction reversalTxn = new Transaction();
+        reversalTxn.setSender(receiver);
+        reversalTxn.setReceiver(sender);
+        reversalTxn.setAmount(amount);
+        reversalTxn.setStatus(TransactionStatus.SUCCESS);
+        reversalTxn.setDescription("Reversal of Txn ID: " + originalTxn.getId());
+        transactionRepository.save(reversalTxn);
+
+        TransactionResponse transactionResponse = transactionMapper.mapEntityToResponse(reversalTxn);
+        response.setResponseData(transactionResponse);
+        response.setStatus(ResponseStatus.SUCCESS);
+        response.setResponseCode(CustomStatus.SUCCESS_CODE);
+        response.setResponseMsg(CustomStatus.RETRIEVE_SUCCESS_MSG);
+        response.setTotalRecords(1);
+        return response;
+
+    }
+
+    @Override
+    @Transactional
+    public Transaction retryTransaction(Long transactionId) throws DataNotFoundException {
+        Transaction transaction = transactionRepository.findById(transactionId).orElseThrow(() -> new
+                        DataNotFoundException(
+                        CustomStatus.DATA_NOT_FOUND,
+                        CustomStatus.DATA_NOT_FOUND_CODE
+                )
+        );
+
+        if (transaction.getStatus() != TransactionStatus.FAILED) {
+            throw new InvalidRequestException(
+                    CustomStatus.FAILED_TXN,
+                    CustomStatus.BAD_REQUEST_CODE
+            );
+        }
+
+        if (transaction.getRetryCount() >= 3) {
+            throw new InvalidRequestException(CustomStatus.MAX_RETRY, CustomStatus.BAD_REQUEST_CODE
+            );
+        }
+        transaction.setRetryCount(transaction.getRetryCount() + 1);
+        transaction.setStatus(TransactionStatus.PROCESSING);
+
+        try {
+            processTransaction(transaction);
+            transaction.setStatus(TransactionStatus.SUCCESS);
+        } catch (Exception e) {
+            transaction.setStatus(TransactionStatus.FAILED);
+        }
+        return transactionRepository.save(transaction);
+
+    }
+
+    private void processTransaction(Transaction transaction) throws DataNotFoundException {
+
+        User sender = userRepository.findById(transaction.getSender().getId())
+                .orElseThrow(() -> new DataNotFoundException(CustomStatus.DATA_NOT_FOUND, CustomStatus.DATA_NOT_FOUND_CODE));
+
+        User receiver = userRepository.findById(transaction.getReceiver().getId())
+                .orElseThrow(() -> new DataNotFoundException(CustomStatus.DATA_NOT_FOUND, CustomStatus.DATA_NOT_FOUND_CODE));
+
+
+        if (sender.getBalance().compareTo(transaction.getAmount()) < 0) {
+            throw new IllegalStateException(CustomStatus.INSUFFICIENT_FUNDS);
+        }
+
+        // Deduct from sender
+        sender.setBalance(sender.getBalance().subtract(transaction.getAmount()));
+
+        // Credit to receiver
+        receiver.setBalance(receiver.getBalance().add(transaction.getAmount()));
+
+        userRepository.save(sender);
+        userRepository.save(receiver);
+    }
+
 
 }

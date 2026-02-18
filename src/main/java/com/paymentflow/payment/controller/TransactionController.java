@@ -44,5 +44,22 @@ public class TransactionController {
         return new ResponseEntity<>(transactionService.getAllTxn(),HttpStatus.OK);
     }
 
+    @Operation(summary = "transaction details by user", description = "fetch transaction details by userId")
+    @GetMapping(value = "/user/{id}",produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<GlobalApiResponse<List<TransactionResponse>>>  getTxnByUserId(@PathVariable Long id) throws DataNotFoundException {
+        return new ResponseEntity<>(transactionService.getAllTxnByUserId(id),HttpStatus.OK);
+    }
+
+    @Operation(summary = "reverse transaction",description = "user can reverse transaction")
+    @GetMapping(value = "/{txnId}/reverse",produces =MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<GlobalApiResponse<TransactionResponse>> reverseTransaction(@PathVariable Long txnId) throws DataNotFoundException {
+        return new ResponseEntity<>(transactionService.reverseTxn(txnId),HttpStatus.OK);
+    }
+    @Operation(summary = "Retry mechanism", description = "retry if txn failed")
+    @PostMapping(value = "/{transactionId}/retry",produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> retryTransaction(@PathVariable Long transactionId) throws DataNotFoundException {
+        return new ResponseEntity<>(transactionService.retryTransaction(transactionId),HttpStatus.OK);
+    }
+
 
 }
